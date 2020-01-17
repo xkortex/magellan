@@ -15,6 +15,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 )
 
 var (
@@ -32,7 +33,15 @@ var ignoreDirs = map[string]bool {
 	"node_modules": true,
 }
 
+func elapsed(what string) func() {
+    start := time.Now()
+    return func() {
+        fmt.Printf("%s took %v\n", what, time.Since(start))
+    }
+}
+
 func do_walk(root string) int {
+	defer elapsed("\n<>walk<>\n")()
 	var count int = 0
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -48,8 +57,9 @@ func do_walk(root string) int {
 			}
 		}
 		count += 1
-		onto := gel.File2ontology(path, info)
-		fmt.Println(onto)
+
+		fnode := gel.File2basicNode(path, info)
+		fmt.Println(gel.BasicNode2Rmap(&fnode))
 		//fmt.Printf("v: %q\n", filepath.Join(root, path))
 		return nil
 	})
