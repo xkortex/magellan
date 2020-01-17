@@ -1,7 +1,6 @@
 package gel
 
 import (
-	"google.golang.org/genproto/googleapis/ads/googleads/v0/enums"
 	"mime"
 	"os"
 	"path/filepath"
@@ -25,7 +24,7 @@ type BasicFileNode struct {
 	TextOnly     bool // document is printable-text-only
 	LinkedData   bool // document can/does contain parseable linked data structures
 	LastModified time.Time
-	enums.MimeTypeEnum
+	err          error
 }
 
 // todo: need onto for markups
@@ -86,7 +85,7 @@ func parseType(fnode *BasicFileNode) bool {
 
 }
 
-func File2basicNode(fpath string, info os.FileInfo) BasicFileNode {
+func File2basicNode(fpath string, info os.FileInfo) (BasicFileNode, ) {
 	fnode := &BasicFileNode{}
 	fnode.A_id = fpath
 	fnode.Label = filepath.Base(fpath)

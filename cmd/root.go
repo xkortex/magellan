@@ -15,7 +15,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"time"
 )
 
 var (
@@ -26,49 +25,6 @@ var (
 
 const defaultCfgName = "gel.yml"
 
-var ignoreDirs = map[string]bool {
-	".git": true,
-	".dvc": true,
-	".gel": true,
-	"node_modules": true,
-}
-
-func elapsed(what string) func() {
-    start := time.Now()
-    return func() {
-        fmt.Printf("%s took %v\n", what, time.Since(start))
-    }
-}
-
-func do_walk(root string) int {
-	defer elapsed("\n<>walk<>\n")()
-	var count int = 0
-
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
-			return err
-		}
-		if info.IsDir() {
-			ok := ignoreDirs[info.Name()]
-			if ok {
-				fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
-				return filepath.SkipDir
-			}
-		}
-		count += 1
-
-		fnode := gel.File2basicNode(path, info)
-		fmt.Println(gel.BasicNode2Rmap(&fnode))
-		//fmt.Printf("v: %q\n", filepath.Join(root, path))
-		return nil
-	})
-	if err != nil {
-		fmt.Printf("error walking the path %q: %v\n", root, err)
-		return -1
-	}
-	return count
-}
 
 func dumb_tests(target string) {
 	hostname, _ := os.Hostname()
@@ -89,8 +45,7 @@ func dumb_tests(target string) {
 	fmt.Printf("Here uri: %s\n", hosturi)
 
 	fmt.Printf("uri path: %s\n", hosturi.Path)
-	num_files := do_walk(target)
-	fmt.Println("Scanned %d files\n", num_files)
+
 }
 
 // RootCmd represents the root command
@@ -105,17 +60,22 @@ var RootCmd = &cobra.Command{
 
 		vprint.Print("root called")
 		vprint.Print(args)
-		target := args[0]
+		root := args[0]
 		timeout, _ := cmd.PersistentFlags().GetFloat64("timeout")
-		vprint.Print(target)
+		vprint.Print(root)
 		vprint.Print(timeout)
 		//if err := cmd.Usage(); err != nil {
 		//	log.Fatalf("Error executing root command: %v", err)
 		//}
 		//log.Fatal("<dbg> silence/usage: ", cmd.SilenceErrors, cmd.SilenceUsage)
-		//out := do_walk(target)
+		//out := do_walk(root)
 		//fmt.Printf("%d files/dirs\n", out)
-		dumb_tests(target)
+		dumb_tests(root)
+		count, err := gel.ProcessFileTree(root)
+		if err != nil{
+			log.Errorf("%s>Walk files failed: %s\n", err, root)
+		}
+		fmt.Printf("Processed %d files\n", count)
 	},
 }
 
