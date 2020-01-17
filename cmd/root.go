@@ -9,6 +9,7 @@ import (
 	"github.com/Wessie/appdirs"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/xkortex/magellan/gel"
 	"github.com/xkortex/vprint"
 	"net/url"
 	"os"
@@ -24,6 +25,13 @@ var (
 
 const defaultCfgName = "gel.yml"
 
+var ignoreDirs = map[string]bool {
+	".git": true,
+	".dvc": true,
+	".gel": true,
+	"node_modules": true,
+}
+
 func do_walk(root string) int {
 	var count int = 0
 
@@ -32,8 +40,17 @@ func do_walk(root string) int {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
 			return err
 		}
+		if info.IsDir() {
+			ok := ignoreDirs[info.Name()]
+			if ok {
+				fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
+				return filepath.SkipDir
+			}
+		}
 		count += 1
-		fmt.Printf("v: %q\n", filepath.Join(root, path))
+		onto := gel.File2ontology(path, info)
+		fmt.Println(onto)
+		//fmt.Printf("v: %q\n", filepath.Join(root, path))
 		return nil
 	})
 	if err != nil {
@@ -62,6 +79,8 @@ func dumb_tests(target string) {
 	fmt.Printf("Here uri: %s\n", hosturi)
 
 	fmt.Printf("uri path: %s\n", hosturi.Path)
+	num_files := do_walk(target)
+	fmt.Println("Scanned %d files\n", num_files)
 }
 
 // RootCmd represents the root command
