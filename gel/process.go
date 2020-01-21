@@ -1,9 +1,12 @@
 package gel
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"github.com/xkortex/vprint"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -85,7 +88,7 @@ var count int64 = 0
 
 // Do something interesting with our file nodes
 func nodeParser(done <-chan struct{}, nodes <-chan BasicFileNode, out chan<- parseResults) {
-	myjobber := jobber
+	//myjobber := jobber
 	jobber++
 	for node := range nodes {
 		select {
@@ -93,9 +96,9 @@ func nodeParser(done <-chan struct{}, nodes <-chan BasicFileNode, out chan<- par
 		case out <- func() (parseResults) {
 			res := parseResults{
 				node: BasicNode2Rmap(&node),
-				err: nil,
+				err:  nil,
 			}
-			fmt.Printf("%4d> %s \n", myjobber, res.node)
+			//fmt.Printf("%4d> %s \n", myjobber, res.node)
 			count++
 			return res
 		}():
@@ -170,7 +173,37 @@ func ProcessFileTree(root string) (int, error) {
 	if err := <-errc; err != nil { // HLerrc
 		return -1, err
 	}
-	vprint.Print("End of ProcessFileTree \n")
-	fmt.Print("%d Results: \n%s\n", len(nodes), nodes[:5])
+	vprint.Printf("End of ProcessFileTree \n")
+
+	ldJson := Rmap{}
+	ldJson["@context"] = map[string]string{
+		"dmoa": "http://dmo.org/archive/",
+		"dmoi": "http://dmo.org/instance/",
+		"foaf": "http://xmlns.com/foaf/0.1/",
+		"nfo":  "http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#",
+		"ore":  "http://www.openarchives.org/ore/terms/",
+		"rdf":  "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+		"rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+		"xsd":  "http://www.w3.org/2001/XMLSchema#",
+	}
+	ldJson["@graph"] = nodes
+
+	outfile := filepath.Join(root, ".gel", "output.jsonld")
+	err := os.MkdirAll(filepath.Dir(outfile), os.ModePerm)
+	if err != nil {
+		logrus.Warnf("Could not create filepath: %s\n", outfile)
+	} else {
+		data, err := json.Marshal(ldJson)
+		if err != nil {
+			logrus.Warn("Could not marshall interface to json", )
+		} else {
+			err := ioutil.WriteFile(outfile, data, 0644)
+			if err != nil {
+				logrus.Warnf("Could not write to file: %s\n", outfile)
+			} else {
+				fmt.Println("Wrote file to: ", outfile)
+			}
+		}
+	}
 	return count, nil
 }

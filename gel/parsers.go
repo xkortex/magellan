@@ -1,8 +1,10 @@
 package gel
 
 import (
+	"github.com/xkortex/vprint"
 	"mime"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -66,12 +68,44 @@ func isText(fnode *BasicFileNode) {
 
 }
 
+// Try to utilize system's mimetype command because it uses some magic under
+// the hood that works really well
+// Otherwise, return a nop
+func getMagicMime() ( func(string) string) {
+	cmd := exec.Command("/bin/sh", "-c", "command -v mimetype")
+	if err := cmd.Run(); err != nil {
+		return func(path string) string {
+			return path
+		}
+	}
+	vprint.Print("Using magic mime enabled \n")
+	return func(path string) string {
+		out, err := exec.Command("mimetype", "--brief", path).Output()
+		vprint.Print("magic: ", path, ": ", string(out), "\n")
+		if err != nil {
+			return path
+		}
+		// todo: caching unknown mime types. For some reason, AddExtensionType doesn't work in real time
+		mimetype := string(out)
+		//ext := filepath.Ext(path)
+		//if ext != "" && mimetype != ""{
+		//	err = mime.AddExtensionType(ext, mimetype)
+		//}
+		return mimetype
+	} // end closure func
+}
+
+var magicMime = getMagicMime()
+
+
+// Discern the ontology file type from the extension/mimetype
 func parseType(fnode *BasicFileNode) bool {
 	atype, ok := KnownExtTypes[fnode.Extension]
 	if ok {
 		fnode.A_type = atype
 		return true
 	}
+	// todo: this is not correct, need to catch e.g. "text/x-sh; charset=utf-8"
 	mt0 := strings.Split(fnode.MimeType, "/")[0]
 
 	atype, ok = KnownTypes[mt0]
@@ -85,19 +119,30 @@ func parseType(fnode *BasicFileNode) bool {
 
 }
 
+// Process a file path into a basic node structure, which has basic file
+// type / attributes. This is the basis for later parsers
+// I doubt I will support windows
 func File2basicNode(fpath string, info os.FileInfo) (BasicFileNode, ) {
 	fnode := &BasicFileNode{}
 	fnode.A_id = fpath
 	fnode.Label = filepath.Base(fpath)
 	fnode.Extension = filepath.Ext(fpath)
-	fnode.MimeType = mime.TypeByExtension(fnode.Extension)
 	fnode.FileSize = info.Size()
+	fnode.MimeType = mime.TypeByExtension(fnode.Extension)
 
+	// parsing mime types is wack, so there is some black magic here
 	if info.IsDir() {
 		fnode.A_type = "nfo:Folder" // might not be inode/directory on windows, idk
+		fnode.MimeType = "inode/directory"
 	} else {
 		parseType(fnode)
 	}
+
+	if fnode.MimeType == "" {
+		fnode.MimeType = magicMime(fpath)
+	}
+
+
 
 	return *fnode
 }
