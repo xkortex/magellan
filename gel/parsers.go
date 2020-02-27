@@ -71,6 +71,7 @@ func isText(fnode *BasicFileNode) {
 // Try to utilize system's mimetype command because it uses some magic under
 // the hood that works really well
 // Otherwise, return a nop
+// todo: put a disable flag around this behavior
 func getMagicMime() ( func(string) string) {
 	cmd := exec.Command("/bin/sh", "-c", "command -v mimetype")
 	if err := cmd.Run(); err != nil {
@@ -81,7 +82,7 @@ func getMagicMime() ( func(string) string) {
 	vprint.Print("Using magic mime enabled \n")
 	return func(path string) string {
 		out, err := exec.Command("mimetype", "--brief", path).Output()
-		vprint.Print("magic: ", path, ": ", string(out), "\n")
+		vprint.Print("magic: ", path, ": ", string(out))
 		if err != nil {
 			return path
 		}
